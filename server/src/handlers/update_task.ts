@@ -1,9 +1,42 @@
+import { db } from '../db';
+import { tasksTable } from '../db/schema';
 import { type UpdateTaskInput, type Task } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateTask(input: UpdateTaskInput): Promise<Task | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing task in the database.
-    // It should update only the provided fields, maintain the created_at timestamp,
-    // update the updated_at timestamp, and return the updated task or null if not found.
-    return Promise.resolve(null);
-}
+export const updateTask = async (input: UpdateTaskInput): Promise<Task | null> => {
+  try {
+    // Extract the id and build update data object
+    const { id, ...updateData } = input;
+    
+    // Only include fields that are actually provided
+    const fieldsToUpdate: Partial<typeof tasksTable.$inferInsert> = {};
+    
+    if (updateData.title !== undefined) {
+      fieldsToUpdate.title = updateData.title;
+    }
+    
+    if (updateData.description !== undefined) {
+      fieldsToUpdate.description = updateData.description;
+    }
+    
+    if (updateData.completed !== undefined) {
+      fieldsToUpdate.completed = updateData.completed;
+    }
+    
+    // Always update the updated_at timestamp
+    fieldsToUpdate.updated_at = new Date();
+    
+    // Perform the update
+    const result = await db.update(tasksTable)
+      .set(fieldsToUpdate)
+      .where(eq(tasksTable.id, id))
+      .returning()
+      .execute();
+
+    // Return the updated task or null if not found
+    return result.length > 0 ? result[0] : null;
+  } catch (error) {
+    console.error('Task update failed:', error);
+    throw error;
+  }
+};
